@@ -1,12 +1,17 @@
 import html
-import math
 import streamlit as st
 
-st.set_page_config(page_title="FinPilot | PSX Trade Analyzer", page_icon="📈", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="FinPilot | PSX Trade Analyzer",
+    page_icon="📈",
+    layout="wide",
+    initial_sidebar_state="collapsed",
+)
 
 st.markdown("""
 <style>
-:root { --navy:#142b45; --emerald:#0f9f78; --muted:#66778a; }
+:root { --navy:#142b45; --emerald:#0f9f78; --muted:#66778a; color-scheme:light; }
+html, body, .stApp { color-scheme:light !important; }
 .stApp {background:#f3f6fa;color:#142b45;}
 .block-container {max-width:1260px;padding-top:1.15rem;padding-bottom:.6rem;}
 header[data-testid="stHeader"] {background:transparent;}
@@ -23,8 +28,44 @@ h1,h2,h3 {letter-spacing:-.035em;}
 .section-label {font-size:1rem;font-weight:800;color:#142b45;margin:0 0 4px;}
 [data-testid="stForm"] {background:#fff;border:1px solid #e2e9f0;border-radius:15px;padding:14px 17px 9px;}
 [data-testid="stForm"] label {font-size:.77rem;font-weight:650;color:#34495e;}
-[data-testid="stForm"] [data-testid="stNumberInput"] input,
-[data-testid="stForm"] [data-testid="stTextInput"] input {background:#f8fafc;border-radius:8px;}
+
+/* Keep Streamlit/BaseWeb input components legible in iOS Chrome/Safari,
+   including when the device is set to dark appearance. */
+[data-testid="stForm"] [data-testid="stTextInput"] input,
+[data-testid="stForm"] [data-testid="stNumberInput"] input {
+    background-color:#f8fafc !important;
+    color:#142b45 !important;
+    -webkit-text-fill-color:#142b45 !important;
+    caret-color:#0f9f78 !important;
+    opacity:1 !important;
+    color-scheme:light !important;
+    font-size:16px !important;
+    -webkit-appearance:none;
+    appearance:none;
+    border-radius:8px;
+}
+[data-testid="stForm"] [data-testid="stTextInput"] input::placeholder,
+[data-testid="stForm"] [data-testid="stNumberInput"] input::placeholder {
+    color:#8290a0 !important;
+    -webkit-text-fill-color:#8290a0 !important;
+    opacity:1 !important;
+}
+/* Also style the BaseWeb wrapper, not only the inner input. */
+[data-testid="stForm"] [data-testid="stTextInput"] [data-baseweb="input"],
+[data-testid="stForm"] [data-testid="stNumberInput"] [data-baseweb="input"] {
+    background:#f8fafc !important;
+    color-scheme:light !important;
+    border-radius:8px;
+}
+[data-testid="stForm"] [data-testid="stNumberInput"] button {
+    background:#edf2f7 !important;
+    color:#142b45 !important;
+    border-color:#e2e9f0 !important;
+}
+[data-testid="stForm"] [data-testid="stNumberInput"] button svg {
+    fill:#142b45 !important;
+    color:#142b45 !important;
+}
 [data-testid="stFormSubmitButton"] button {background:#0f9f78;border:0;border-radius:9px;color:white;font-weight:750;min-height:40px;}
 [data-testid="stFormSubmitButton"] button:hover {background:#087d60;color:white;border:0;}
 .metric-card {background:white;border:1px solid #e2e9f0;border-radius:13px;padding:15px 17px;min-height:104px;}
@@ -40,7 +81,19 @@ h1,h2,h3 {letter-spacing:-.035em;}
 .detail-row span:last-child {text-align:right;white-space:nowrap;}
 .footer {display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;border-top:1px solid #dfe7ef;padding-top:11px;margin-top:15px;font-size:.7rem;color:#8390a1;}
 div[data-testid="stAlert"] {padding:.5rem .8rem;}
-@media(max-width:700px){.block-container{padding-top:.65rem;padding-left:.85rem;padding-right:.85rem;}.hero{padding:17px;}.hero-title{font-size:1.45rem;}.metric-card{padding:12px;min-height:90px;}.metric-value{font-size:1.2rem;}.footer{font-size:.67rem;}}
+@media(max-width:700px) {
+    .block-container {padding-top:.65rem;padding-left:.85rem;padding-right:.85rem;}
+    .hero {padding:17px;}
+    .hero-title {font-size:1.45rem;}
+    .metric-card {padding:12px;min-height:90px;}
+    .metric-value {font-size:1.2rem;white-space:normal;overflow-wrap:anywhere;}
+    .detail-row {font-size:.76rem;}
+    .detail-row span:last-child {white-space:normal;overflow-wrap:anywhere;}
+    .footer {font-size:.67rem;}
+    [data-testid="stForm"] {padding:13px 12px 8px;}
+    [data-testid="stForm"] [data-testid="stTextInput"] input,
+    [data-testid="stForm"] [data-testid="stNumberInput"] input {min-height:44px !important;}
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -49,55 +102,61 @@ st.markdown('''<div class="hero"><div class="hero-kicker">PSX ANALYTICS</div><di
 
 with st.form("trade_inputs"):
     st.markdown('<div class="section-label">Trade calculator</div>', unsafe_allow_html=True)
-    c1,c2,c3 = st.columns(3, gap="medium")
+    c1, c2, c3 = st.columns(3, gap="medium")
     with c1:
-        stock_symbol=st.text_input("Stock symbol", value="FABL").strip().upper()
-        purchase_price=st.number_input("Buy price (PKR)", min_value=0.0, value=100.0, step=.01, format="%.2f")
+        stock_symbol = st.text_input("Stock symbol", value="FABL").strip().upper()
+        purchase_price = st.number_input("Buy price (PKR)", min_value=0.0, value=100.0, step=.01, format="%.2f")
     with c2:
-        quantity=st.number_input("Quantity", min_value=1, value=100, step=1)
-        sell_price=st.number_input("Sell price (PKR)", min_value=0.0, value=110.0, step=.01, format="%.2f")
+        quantity = st.number_input("Quantity", min_value=1, value=100, step=1)
+        sell_price = st.number_input("Sell price (PKR)", min_value=0.0, value=110.0, step=.01, format="%.2f")
     with c3:
-        purchase_brokerage_per=st.number_input("Buy brokerage (%)", min_value=0.0, max_value=99.99, value=1.0, step=.1, format="%.2f")
-        sell_brokerage_per=st.number_input("Sell brokerage (%)", min_value=0.0, max_value=99.99, value=1.0, step=.1, format="%.2f")
+        purchase_brokerage_per = st.number_input("Buy brokerage (%)", min_value=0.0, max_value=99.99, value=1.0, step=.1, format="%.2f")
+        sell_brokerage_per = st.number_input("Sell brokerage (%)", min_value=0.0, max_value=99.99, value=1.0, step=.1, format="%.2f")
     st.form_submit_button("Analyze Trade  →", type="primary", use_container_width=True)
 
-errors=[]
+errors = []
 if not stock_symbol: errors.append("Please enter a stock symbol.")
-if purchase_price<=0: errors.append("Buy price must be greater than zero.")
-if sell_price<0: errors.append("Sell price cannot be negative.")
-if not 0<=purchase_brokerage_per<100 or not 0<=sell_brokerage_per<100: errors.append("Brokerage must be at least 0% and below 100%.")
-for err in errors: st.error(err)
+if purchase_price <= 0: errors.append("Buy price must be greater than zero.")
+if sell_price < 0: errors.append("Sell price cannot be negative.")
+if not 0 <= purchase_brokerage_per < 100 or not 0 <= sell_brokerage_per < 100:
+    errors.append("Brokerage must be at least 0% and below 100%.")
+for err in errors:
+    st.error(err)
 
 def metric(label, value, note, color="neutral"):
     return f'<div class="metric-card"><div class="metric-label">{html.escape(label)}</div><div class="metric-value {color}">{html.escape(value)}</div><div class="metric-note">{html.escape(note)}</div></div>'
 
 def detail(title, rows):
-    inner="".join(f'<div class="detail-row"><span>{html.escape(k)}</span><span>{html.escape(v)}</span></div>' for k,v in rows)
+    inner = "".join(f'<div class="detail-row"><span>{html.escape(k)}</span><span>{html.escape(v)}</span></div>' for k, v in rows)
     return f'<div class="detail-card"><div class="detail-title">{html.escape(title)}</div>{inner}</div>'
 
 if not errors:
-    gross_purchase=purchase_price*quantity
-    purchase_brokerage=gross_purchase*purchase_brokerage_per/100
-    total_investment=gross_purchase+purchase_brokerage
-    gross_sell=sell_price*quantity
-    sell_brokerage=gross_sell*sell_brokerage_per/100
-    net_sale_proceeds=gross_sell-sell_brokerage
-    net_profit_loss=net_sale_proceeds-total_investment
-    net_return_percentage=net_profit_loss/total_investment*100
-    break_even_price=total_investment/(quantity*(1-sell_brokerage_per/100))
-    # Display negative returns smaller than 0.005% as <0.01% rather than -0.00%.
-    if 0<abs(net_return_percentage)<.005:
-        return_text=("−" if net_return_percentage<0 else "+")+"<0.01%"
+    gross_purchase = purchase_price * quantity
+    purchase_brokerage = gross_purchase * purchase_brokerage_per / 100
+    total_investment = gross_purchase + purchase_brokerage
+    gross_sell = sell_price * quantity
+    sell_brokerage = gross_sell * sell_brokerage_per / 100
+    net_sale_proceeds = gross_sell - sell_brokerage
+    net_profit_loss = net_sale_proceeds - total_investment
+    net_return_percentage = net_profit_loss / total_investment * 100
+    break_even_price = total_investment / (quantity * (1 - sell_brokerage_per / 100))
+    if 0 < abs(net_return_percentage) < .005:
+        return_text = ("−" if net_return_percentage < 0 else "+") + "<0.01%"
     else:
-        return_text=f"{net_return_percentage:+.2f}%"
-    color="pos" if net_profit_loss>0 else "neg" if net_profit_loss<0 else "neutral"
+        return_text = f"{net_return_percentage:+.2f}%"
+    color = "pos" if net_profit_loss > 0 else "neg" if net_profit_loss < 0 else "neutral"
     st.markdown('<div class="section-label" style="margin:12px 0 7px">Trade summary</div>', unsafe_allow_html=True)
-    m1,m2,m3=st.columns(3, gap="medium")
-    with m1: st.markdown(metric("NET PROFIT / LOSS",f"PKR {net_profit_loss:+,.2f}",f"{stock_symbol} · {quantity:,} shares",color),unsafe_allow_html=True)
-    with m2: st.markdown(metric("NET RETURN",return_text,"After buy and sell brokerage",color),unsafe_allow_html=True)
-    with m3: st.markdown(metric("BREAK-EVEN SELL PRICE",f"PKR {break_even_price:,.2f}","Per share · displayed to 2 decimals"),unsafe_allow_html=True)
-    d1,d2=st.columns(2, gap="medium")
-    with d1: st.markdown(detail("↘  Purchase breakdown",[("Gross purchase",f"PKR {gross_purchase:,.2f}"),(f"Brokerage ({purchase_brokerage_per:.2f}%)",f"PKR {purchase_brokerage:,.2f}"),("Total investment",f"PKR {total_investment:,.2f}")]),unsafe_allow_html=True)
-    with d2: st.markdown(detail("↗  Sale breakdown",[("Gross sale",f"PKR {gross_sell:,.2f}"),(f"Brokerage ({sell_brokerage_per:.2f}%)",f"PKR {sell_brokerage:,.2f}"),("Net sale proceeds",f"PKR {net_sale_proceeds:,.2f}")]),unsafe_allow_html=True)
+    m1, m2, m3 = st.columns(3, gap="medium")
+    with m1:
+        st.markdown(metric("NET PROFIT / LOSS", f"PKR {net_profit_loss:+,.2f}", f"{stock_symbol} · {quantity:,} shares", color), unsafe_allow_html=True)
+    with m2:
+        st.markdown(metric("NET RETURN", return_text, "After buy and sell brokerage", color), unsafe_allow_html=True)
+    with m3:
+        st.markdown(metric("BREAK-EVEN SELL PRICE", f"PKR {break_even_price:,.2f}", "Per share · displayed to 2 decimals"), unsafe_allow_html=True)
+    d1, d2 = st.columns(2, gap="medium")
+    with d1:
+        st.markdown(detail("↘  Purchase breakdown", [("Gross purchase", f"PKR {gross_purchase:,.2f}"), (f"Brokerage ({purchase_brokerage_per:.2f}%)", f"PKR {purchase_brokerage:,.2f}"), ("Total investment", f"PKR {total_investment:,.2f}")]), unsafe_allow_html=True)
+    with d2:
+        st.markdown(detail("↗  Sale breakdown", [("Gross sale", f"PKR {gross_sell:,.2f}"), (f"Brokerage ({sell_brokerage_per:.2f}%)", f"PKR {sell_brokerage:,.2f}"), ("Net sale proceeds", f"PKR {net_sale_proceeds:,.2f}")]), unsafe_allow_html=True)
 
 st.markdown('<div class="footer"><span>© 2026 FinPilot · Built with Python & Streamlit</span><span>Educational estimates only · Not investment advice · Taxes and exchange fees excluded</span></div>', unsafe_allow_html=True)
